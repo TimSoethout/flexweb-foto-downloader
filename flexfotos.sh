@@ -91,7 +91,7 @@ echo "Removing old cookie file stored at ${cookie_file}, if any."
 rm -f ${cookie_file}
 
 # Login and save the session cookie
-echo "Logging in to https://blos.flexkids.nl/, saving session cookie to ${cookie_file}."
+echo "Logging in to $base_url, saving session cookie to ${cookie_file}."
 curl "$base_url/login/login" \
  --cookie-jar ${cookie_file} \
  --data-urlencode "username=${username}" \
