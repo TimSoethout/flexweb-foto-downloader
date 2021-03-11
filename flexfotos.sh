@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# FlexFotos.sh for fetching fotos from flexweb app like https://mijn.kmnkindenco.nl./
+# FlexFotos.sh for fetching fotos from flexweb app like https://mijn.kmnkindenco.nl/ and https://blos.flexkids.nl
 # Requires curl for performing http requests and jq for parsing json.
 
 # This application requires cUrl for retrieving the images, jq for parsing json and exiftool for adding exif metadata.
@@ -24,18 +24,18 @@ function checkArgs() {
     fi
 }
 function display_usage() {
-    echo "usage: flexfotos -u username -p password -t [target_dir] -s [start_year] -e [end_year] -k [keyword1, keyword2, keyword3] -l [latitude] -o [longitude]"
+    echo "usage: flexfotos -u username -p password -t [target_dir] -s [start_year] -e [end_year] -k [keyword1, keyword2, keyword3] -l [latitude] -o [longitude] -b [https://blos.flexkids.nl/https://mijn.kmnkindenco.nl/...]"
     echo "The keywords, latitude and longitude are written to the IPTC:Keywords, XMP:Latitude and XMP:longitude metadata of all fotos."
     exit 1
 }
 
 
-
+base_url="https://blos.flexkids.nl"
 script_dir=$(cd "$(dirname "$0")" && pwd -P)
 cookie_file="${script_dir}/session.cookie"
 target_dir=./target
-start_year=2014
-end_year=2020
+start_year=2021
+end_year=2022
 keywords=""
 gps_latitude=""
 gps_longitude=""
@@ -43,7 +43,7 @@ gps_longitude=""
 checkDependencies
 
 # Parse and get script arguments
-while getopts ":u:p:t:s:e:k:l:o:" opt; do
+while getopts ":u:p:t:s:e:k:l:o:b:" opt; do
   case "${opt}" in
     u)
        username=$OPTARG
@@ -69,6 +69,9 @@ while getopts ":u:p:t:s:e:k:l:o:" opt; do
     o)
        gps_longitude=$OPTARG
        ;;
+    b)
+       base_url=$OPTARG
+       ;;
     \?)
       echo >&2 "Invalid option: -$OPTARG"
       exit 1
@@ -88,8 +91,8 @@ echo "Removing old cookie file stored at ${cookie_file}, if any."
 rm -f ${cookie_file}
 
 # Login and save the session cookie
-echo "Logging in to https://mijn.kmnkindenco.nl, saving session cookie to ${cookie_file}."
-curl 'https://mijn.kmnkindenco.nl/login/login' \
+echo "Logging in to https://blos.flexkids.nl/, saving session cookie to ${cookie_file}."
+curl "$base_url/login/login" \
  --cookie-jar ${cookie_file} \
  --data-urlencode "username=${username}" \
  --data-urlencode "password=${password}" \
@@ -98,13 +101,13 @@ curl 'https://mijn.kmnkindenco.nl/login/login' \
 echo "Navigating to ${target_dir}, creating directories if needed."
 mkdir -p ${target_dir}
 cd ${target_dir}
-for ((year=start_year; year < end_year; year++)); do
+for ((year=start_year; year <= end_year; year++)); do
     for month in {1..12}; do
 
         # Retrieve the ids of the fotos for the specific year and month.
         echo "Retrieving fotos for ${year}-${month}."
         foto_ids=$( \
-            curl 'https://mijn.kmnkindenco.nl/ouder/fotoalbum/standaardalbum' \
+            curl "$base_url/ouder/fotoalbum/standaardalbum" \
              --cookie ${cookie_file} \
              --data-urlencode "year=${year}" \
              --data-urlencode "month=${month}" | \
@@ -114,13 +117,13 @@ for ((year=start_year; year < end_year; year++)); do
          for foto_id in ${foto_ids}; do
             echo "Downloading foto ${foto_id}."
             foto_file="${foto_id}.jpg"
-            curl "https://mijn.kmnkindenco.nl/ouder/media/download/media/${foto_id}" \
+            curl "$base_url/ouder/media/download/media/${foto_id}" \
              --cookie ${cookie_file} \
              -o "${foto_file}"
 
             echo "Retrieving metadata...."
             metadata=$( \
-                curl "https://mijn.kmnkindenco.nl/ouder/fotoalbum/fotometa" \
+                curl "$base_url/ouder/fotoalbum/fotometa" \
                  --cookie ${cookie_file} \
                  --data-urlencode "id=${foto_id}" | \
                  jq ".[0] | {MEDIA_DAG, MEDIA_BESCHRIJVING}" \
